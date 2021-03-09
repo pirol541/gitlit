@@ -1,10 +1,10 @@
 {
   "name": "gitlit",
-  "version": "2.0.14",
-  "description": "",
+  "version": "2.1.0",
+  "description": "Simple GUI for Git LFS",
   "main": "app/main.js",
   "build": {
-    "appId": "s2.gitlit",
+    "appId": "pirol541.gitlit",
     "linux": {
       "target": [
         {
@@ -52,8 +52,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/S2-/gitlit"
+    "url": "https://github.com/pirol541/gitlit"
   },
-  "author": "s2",
+  "author": "pirol541",
   "license": "ISC"
 }
