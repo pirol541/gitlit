@@ -68,7 +68,7 @@
 		ejs.preloadTemplate('templates/main.ejs')
 		.then(t => {
 			$('.js-container').html(ejs.rr(t));
-			$('.js-repo-dir').text('current repo dir: ' + repoDir).show();
+			$('.js-repo-dir').text('Current repo path: ' + repoDir).show();
 		});
 	});
 

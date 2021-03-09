@@ -1,9 +1,19 @@
+<div class="left">
+	<div style="display: inline;">
+		<a class="btn btn-primary btn-sm js-open-folder" href="javascript:///">Open another folder</a>
+		<input type="file" style="display: none" class="js-open-folder-input" webkitdirectory />
+	</div>
+	<a class="btn btn-secondary btn-sm js-refresh" href="javascript:///">
+		Refresh
+	</a>
+</div>
+<br>
 <table class="table table-striped sortable js-filestable">
 	<thead class="thead-light">
 		<tr>
-			<th>file</th>
-			<th>status</th>
-			<th class="sorttable_nosort">action</th>
+			<th>File</th>
+			<th>Status</th>
+			<th class="sorttable_nosort">Action</th>
 		</tr>
 	<thead>
 
@@ -32,13 +42,3 @@
 	<% }); %>
 	</tbody>
 </table>
-
-<div class="float-right">
-	<div style="display: inline;">
-		<a class="btn btn-primary btn-sm js-open-folder" href="javascript:///">Open another folder</a>
-		<input type="file" style="display: none" class="js-open-folder-input" webkitdirectory />
-	</div>
-	<a class="btn btn-secondary btn-sm js-refresh" href="javascript:///">
-		Refresh
-	</a>
-</div>
