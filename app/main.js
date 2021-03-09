@@ -1,8 +1,10 @@
-const {app, BrowserWindow, ipcMain} = require('electron');
+const {app, BrowserWindow, dialog, ipcMain} = require('electron');
 const path = require('path');
 const url = require('url');
 const electronLocalshortcut = require('electron-localshortcut');
+const { promisify } = require('util')
 const exec = require('child_process').exec;
+const aexec = promisify(exec);
 const gau = require('github-app-updater');
 const args = require('minimist')(process.defaultApp ? process.argv.slice(3) : process.argv.slice(1), {
 	default: {
@@ -19,7 +21,7 @@ if (process.platform === 'win32') {
 	setTimeout(() => {
 		gau.checkForUpdate({
 			currentVersion: app.getVersion(),
-			repo: 'https://api.github.com/repos/S2-/gitlit/releases/latest',
+			repo: 'https://api.github.com/repos/pirol541/gitlit/releases/latest',
 			assetMatch: /.+setup.+exe/i
 		});
 
@@ -51,8 +53,30 @@ if (process.platform === 'win32') {
 		});
 	}, 5000);
 }
-
 //end update stuff
+
+function lockFile(file) {
+	exec('git lfs lock --json "' + file + '"', 
+		{	maxBuffer: (1024 * 1024) * 10, //10MB
+			cwd: repoDir
+		},
+		(error, stdout, stderr) => {
+			let notification = {
+				message: (error && error.message) || stderr,
+				type: 'error'
+			};
+			if (stdout) {
+				notification = {
+					file: file,
+					event: 'lock',
+					data: JSON.parse(stdout),
+					type: 'info'
+				};
+			}
+			win.webContents.send('notification', notification);
+		}
+	);
+};
 
 function getLfsFileList(dir, cb) {
 	exec('git ls-files | git check-attr --stdin lockable', {
@@ -169,7 +193,7 @@ function createWindow() {
 	// Create the browser window.
 	win = new BrowserWindow({
 		title: 'gitlit v' + app.getVersion(),
-		width: 800,
+		width: 1100,
 		height: 700,
 		webPreferences: {
 			nodeIntegration: true,
@@ -241,27 +265,52 @@ ipcMain.on('unlock', (event, file) => {
 });
 
 ipcMain.on('lock', (event, file) => {
-	exec('git lfs lock --json "' + file + '"', {
-		maxBuffer: (1024 * 1024) * 10, //10MB
-		cwd: repoDir
-	},
-	(error, stdout, stderr) => {
-		let notification = {
-			message: (error && error.message) || stderr,
-			type: 'error'
-		};
-
-		if (stdout) {
-			notification = {
-				file: file,
-				event: 'lock',
-				data: JSON.parse(stdout),
-				type: 'info'
-			};
-		}
-
-		win.webContents.send('notification', notification);
-	});
+	var child = exec('git remote update');
+	//if above command succeeds:
+	child.stdout.on('data', (data) => {
+		exec('git log --oneline --exit-code ..remotes/origin/mydevelop "' + file + '"', 
+			{ 	maxBuffer: (1024 * 1024) * 10, //10MB
+				cwd: repoDir
+			},
+			(error, stdout, stderr) => {
+				//if changes to the file exist in develop branch:
+				if (stdout) {
+					//open pop-up warning
+					if (dialog.showMessageBoxSync(win, {
+						message: 	`A newer version of this file was pushed to the upstream develop branch.\n
+									Consider merging the newest version into your feature branch before applying changes.
+									Otherwise your or the other developer's changes to the file might get lost in a merge conflict later.`,
+						type: "warning",
+						buttons: ["Lock anyway!", "Cancel"],
+						defaultId: 1,
+						noLink: true,
+						title: "Unmerged changes!",
+						cancelId: 1,
+					})) 
+					{
+						//if "cancel" -> exit function
+						return 1;
+					}
+					else
+					{
+						//if "yes" -> continue locking file
+						lockFile(file);
+						return 0;
+					}
+				}
+				//in case there was an error (e.g., no develop branch found), show a notification
+				if ((error && error.message) || stderr) {
+					let notification = {
+						message: "Apparently, I can't find an upstream develop branch to check for newer files...\n\n" + (error && error.message) || stderr,
+						type: 'error'
+					};
+					win.webContents.send('notification', notification);	
+				}
+				//and then lock the file as if there was no check
+				lockFile(file);
+			}
+		);
+	});	
 });
 
 ipcMain.on('restart', (event, newRepoDir) => {
