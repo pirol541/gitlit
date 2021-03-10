@@ -2,9 +2,7 @@ const {app, BrowserWindow, dialog, ipcMain} = require('electron');
 const path = require('path');
 const url = require('url');
 const electronLocalshortcut = require('electron-localshortcut');
-const { promisify } = require('util')
 const exec = require('child_process').exec;
-const aexec = promisify(exec);
 const gau = require('github-app-updater');
 const args = require('minimist')(process.defaultApp ? process.argv.slice(3) : process.argv.slice(1), {
 	default: {
@@ -15,6 +13,7 @@ const args = require('minimist')(process.defaultApp ? process.argv.slice(3) : pr
 let win;
 let repoDir = path.resolve(path.normalize(args._.join(' ')));
 let repoRootDir = repoDir;
+var branch = '';
 
 //auto update stuff
 if (process.platform === 'win32') {
@@ -76,6 +75,36 @@ function lockFile(file) {
 			win.webContents.send('notification', notification);
 		}
 	);
+};
+
+function getRepoBranches(dir, cb) {
+	exec('git branch -r | findstr /v "HEAD"', {
+			maxBuffer: (1024 * 1024) * 10, //10MB
+			cwd: dir
+		},
+		(error, stdout, stderr) => {
+			if (error) {
+				cb(error);
+				return;
+			}
+			let branches = [];
+			if (stdout) {
+				stdout.split('\n').forEach((abranch) => {
+					if (abranch.length > 0) { branches.push(abranch.trim()); }
+				});
+				branch = '';
+				let defaultBranch = '';
+				if (branches.indexOf("origin/main") > -1) { branch = "origin/main"; defaultBranch = "origin/main"; }
+				if (branches.indexOf("origin/master") > -1) { branch = "origin/master"; defaultBranch = "origin/master"; }
+				if (branches.indexOf("origin/develop") > -1) { branch = "origin/develop"; defaultBranch = "origin/develop"; }
+				
+				cb(null, branches, defaultBranch);
+			} else {
+				defaultBranch = '';
+				cb(null, branches, defaultBranch);
+			}
+		}
+	);	  
 };
 
 function getLfsFileList(dir, cb) {
@@ -183,10 +212,18 @@ function loadRepoPage() {
 
 				allFiles.push(t);
 			});
-
-			win.webContents.send('fileList', allFiles);
+			
+			getRepoBranches(repoDir, (err, branches, defaultBranch) => {
+				if (err) {
+					console.error(err);
+					return;
+				}
+				win.webContents.send('fileList', allFiles, branches, defaultBranch);
+			});
 		});
 	});
+	
+	
 };
 
 function createWindow() {
@@ -268,17 +305,17 @@ ipcMain.on('lock', (event, file) => {
 	var child = exec('git remote update');
 	//if above command succeeds:
 	child.stdout.on('data', (data) => {
-		exec('git log --oneline --exit-code ..remotes/origin/mydevelop "' + file + '"', 
+		exec('git log --oneline --exit-code ..remotes/' + branch + ' "' + file + '"', 
 			{ 	maxBuffer: (1024 * 1024) * 10, //10MB
 				cwd: repoDir
 			},
 			(error, stdout, stderr) => {
-				//if changes to the file exist in develop branch:
+				//if changes to the file exist in upstream branch:
 				if (stdout) {
 					//open pop-up warning
 					if (dialog.showMessageBoxSync(win, {
-						message: 	`A newer version of this file was pushed to the upstream develop branch.\n
-									Consider merging the newest version into your feature branch before applying changes.
+						message: 	`A newer version of this file was pushed to branch ` + branch + `.\n
+									Consider merging the newest version into your current branch before applying changes.
 									Otherwise your or the other developer's changes to the file might get lost in a merge conflict later.`,
 						type: "warning",
 						buttons: ["Lock anyway!", "Cancel"],
@@ -301,7 +338,7 @@ ipcMain.on('lock', (event, file) => {
 				//in case there was an error (e.g., no develop branch found), show a notification
 				if ((error && error.message) || stderr) {
 					let notification = {
-						message: "Apparently, I can't find an upstream develop branch to check for newer files...\n\n" + (error && error.message) || stderr,
+						message: "Apparently, I can't find the specified upstream branch to check for newer files...\n\n" + (error && error.message) || stderr,
 						type: 'error'
 					};
 					win.webContents.send('notification', notification);	
@@ -311,6 +348,10 @@ ipcMain.on('lock', (event, file) => {
 			}
 		);
 	});	
+});
+
+ipcMain.on('selectBranch', (event, thisbranch) => {
+	branch = thisbranch;
 });
 
 ipcMain.on('restart', (event, newRepoDir) => {

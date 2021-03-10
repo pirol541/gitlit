@@ -49,7 +49,7 @@
 	//end update stuff
 
 
-	ipcRenderer.on('fileList', (event, files) => {
+	ipcRenderer.on('fileList', (event, files, branches, defaultBranch) => {
 		firstRun = false;
 		if (files && files.length > 0) {
 			ejs.preloadTemplate('templates/files.ejs')
@@ -58,10 +58,24 @@
 				sorttable.makeSortable($('.js-filestable')[0]);
 				var myTH = document.getElementsByTagName('th')[0];
 				sorttable.innerSortFunction.apply(myTH, []);
+				
+				let dropItems = '';
+				for (i = 0; i < branches.length; i++) {
+					dropItems += '<a class="dropdown-item js-select-branch" id="' + branches[i] + '" href="#">' + branches[i] + '</a>';
+				}
+				document.getElementById("branchSelection").innerHTML = dropItems;
+				document.getElementById("dropdownMenuButton").textContent = defaultBranch;				
 			});
 		} else {
 			$('.files-table-container').html(ejs.rr('templates/noGitLfsFiles.ejs'));
 		}
+	});
+
+	$(document).on('click', '.js-select-branch', (ev) => {
+		ev.preventDefault();
+		let xbranch = $(ev.currentTarget).attr('id');
+		document.getElementById("dropdownMenuButton").textContent = xbranch;
+		ipcRenderer.send('selectBranch', xbranch);
 	});
 
 	ipcRenderer.on('repoDir', (event, repoDir) => {
