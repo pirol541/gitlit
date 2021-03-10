@@ -314,7 +314,7 @@ ipcMain.on('lock', (event, file) => {
 				if (stdout) {
 					//open pop-up warning
 					if (dialog.showMessageBoxSync(win, {
-						message: 	`A newer version of this file was pushed to branch ` + branch + `.\n
+						message: 	`A newer version of this file was pushed to remote branch "` + branch + `".\n
 									Consider merging the newest version into your current branch before applying changes.
 									Otherwise your or the other developer's changes to the file might get lost in a merge conflict later.`,
 						type: "warning",
@@ -338,7 +338,7 @@ ipcMain.on('lock', (event, file) => {
 				//in case there was an error (e.g., no develop branch found), show a notification
 				if ((error && error.message) || stderr) {
 					let notification = {
-						message: "Apparently, I can't find the specified upstream branch to check for newer files...\n\n" + (error && error.message) || stderr,
+						message: "Apparently, I can't find the specified remote branch to check for newer files...\n\n" + (error && error.message) || stderr,
 						type: 'error'
 					};
 					win.webContents.send('notification', notification);	
