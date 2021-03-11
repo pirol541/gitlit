@@ -1,6 +1,7 @@
 const {app, BrowserWindow, dialog, ipcMain} = require('electron');
 const path = require('path');
 const url = require('url');
+const Store = require('electron-store');
 const electronLocalshortcut = require('electron-localshortcut');
 const exec = require('child_process').exec;
 const gau = require('github-app-updater');
@@ -14,6 +15,7 @@ let win;
 let repoDir = path.resolve(path.normalize(args._.join(' ')));
 let repoRootDir = repoDir;
 var branch = '';
+const store = new Store();
 
 //auto update stuff
 if (process.platform === 'win32') {
@@ -88,20 +90,23 @@ function getRepoBranches(dir, cb) {
 				return;
 			}
 			let branches = [];
+			branch = '';
 			if (stdout) {
 				stdout.split('\n').forEach((abranch) => {
 					if (abranch.length > 0) { branches.push(abranch.trim()); }
 				});
-				branch = '';
-				let defaultBranch = '';
-				if (branches.indexOf("origin/main") > -1) { branch = "origin/main"; defaultBranch = "origin/main"; }
-				if (branches.indexOf("origin/master") > -1) { branch = "origin/master"; defaultBranch = "origin/master"; }
-				if (branches.indexOf("origin/develop") > -1) { branch = "origin/develop"; defaultBranch = "origin/develop"; }
-				
-				cb(null, branches, defaultBranch);
+				//check for stored default branch in DB, if not then look for develop/master/main:	
+				if (store.get(repoDir) != null) {
+					branch = store.get(repoDir);
+				} else {
+					if (branches.indexOf("origin/main") > -1) { branch = "origin/main"; }
+					if (branches.indexOf("origin/master") > -1) { branch = "origin/master"; }
+					if (branches.indexOf("origin/develop") > -1) { branch = "origin/develop"; }
+					store.set(repoDir, branch);
+				}
+				cb(null, branches, branch);
 			} else {
-				defaultBranch = '';
-				cb(null, branches, defaultBranch);
+				cb(null, branches, branch);
 			}
 		}
 	);	  
@@ -352,6 +357,7 @@ ipcMain.on('lock', (event, file) => {
 
 ipcMain.on('selectBranch', (event, thisbranch) => {
 	branch = thisbranch;
+	store.set(repoDir, branch);
 });
 
 ipcMain.on('restart', (event, newRepoDir) => {
