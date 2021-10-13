@@ -122,11 +122,11 @@
     //     selected_stack.pop(this)
     // });
 
-	ipcRenderer.on('repoDir', (event, repoDir) => {
+	ipcRenderer.on('repoDir', (event, repoDir, branch) => {
 		ejs.preloadTemplate('templates/main.ejs')
 		.then(t => {
 			$('.js-container').html(ejs.rr(t));
-			$('.js-repo-dir').text('Current repo path: ' + repoDir).show();
+            $('.js-repo-dir').text('Current repo path: ' + repoDir +'\xa0\xa0\xa0\xa0Current branch: '+branch).show();
 		});
 	});
 

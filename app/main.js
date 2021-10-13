@@ -155,7 +155,9 @@ function getArrayObjectByKey(array, key, value, defaultKeyValue) {
 };
 
 function loadRepoPage() {
-	win.webContents.send('repoDir', repoDir);
+    try { var branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: repoDir }).toString(); }
+    catch (e) { console.error('Error occured', e); }
+    win.webContents.send('repoDir', repoDir, branch);
 
 	getLfsFileList(repoDir, (err, files) => {
 		if (err) {
