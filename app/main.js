@@ -243,26 +243,49 @@ function startup(cb) {
 };
 
 ipcMain.on('unlock', (event, file) => {
-	exec('git lfs unlock "' + file + '"', {
-		maxBuffer: (1024 * 1024) * 10, //10MB
-		cwd: repoDir
-	},
-	(error, stdout, stderr) => {
-		let notification = {
-			message: (error && error.message) || stderr,
-			type: 'error'
-		};
-
-		if (stdout) {
-			notification = {
-				file: file,
-				event: 'unlock',
-				type: 'info'
-			};
-		}
-
-		win.webContents.send('notification', notification);
-	});
+    try {
+        execSync('git fetch', { cwd: repoDir });
+        const raw_commits = execSync('git log --oneline @{upstream}..@ "'+file+'"', { cwd: repoDir }).toString();
+        if (raw_commits)
+        {
+            if (dialog.showMessageBoxSync(win, {
+                message: `Local commits not pushed to upstream branch!\n\nYour changes might get overwritten if they are not visible to other developers.`,
+                type: "warning",
+                buttons: ["Unlock anyway!", "Cancel"],
+                defaultId: 1,
+                noLink: true,
+                title: "Unpushed commits!",
+                cancelId: 1,
+            }))
+            {
+                return 1; //user clicked "cancel" -> exit function here without unlocking the file
+            }
+        }
+    } catch (e) {
+        console.error('Error occured', e);
+        let notification = {
+            message: "Checking upstream branch for unpushed commits failed.\nSee console for details.\nUnlocking file now.",
+            type: 'error'
+        };
+        win.webContents.send('notification', notification);
+    }
+    //no issues exist or user clicked "yes" -> continue unlocking file
+    exec('git lfs unlock "'+file+'"', { cwd: repoDir },
+        (error, stdout, stderr) => {
+            let notification = {
+                message: (error && error.message) || stderr,
+                type: 'error'
+            };
+            if (stdout) {
+                notification = {
+                    file: file,
+                    event: 'unlock',
+                    type: 'info'
+                };
+            }
+            win.webContents.send('notification', notification);
+        }
+    );
 });
 
 ipcMain.on('lock', (event, file) => {
