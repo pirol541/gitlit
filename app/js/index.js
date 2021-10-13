@@ -49,7 +49,7 @@
 	//end update stuff
 
 
-	ipcRenderer.on('fileList', (event, files, branches, defaultBranch) => {
+	ipcRenderer.on('fileList', (event, files) => {
 		firstRun = false;
 		if (files && files.length > 0) {
 			ejs.preloadTemplate('templates/files.ejs')
@@ -58,25 +58,69 @@
 				sorttable.makeSortable($('.js-filestable')[0]);
 				var myTH = document.getElementsByTagName('th')[0];
 				sorttable.innerSortFunction.apply(myTH, []);
-				
-				let dropItems = '';
-				for (i = 0; i < branches.length; i++) {
-					dropItems += '<a class="dropdown-item js-select-branch" id="' + branches[i] + '" href="#">' + branches[i] + '</a>';
-				}
-				document.getElementById("branchSelection").innerHTML = dropItems;
-				document.getElementById("dropdownMenuButton").textContent = defaultBranch;				
 			});
 		} else {
 			$('.files-table-container').html(ejs.rr('templates/noGitLfsFiles.ejs'));
 		}
 	});
 
-	$(document).on('click', '.js-select-branch', (ev) => {
-		ev.preventDefault();
-		let xbranch = $(ev.currentTarget).attr('id');
-		document.getElementById("dropdownMenuButton").textContent = xbranch;
-		ipcRenderer.send('selectBranch', xbranch);
-	});
+    // $(document).on('click', '.js-lock-selected', (ev) => {
+    //     ev.preventDefault();
+    //     let selectedList = ...
+    //     ipcRenderer.send('lockSelected', selectedList);
+    // });
+
+    // $(document).on('click', '.js-unlock-selected', (ev) => {
+    //     ev.preventDefault();
+    //     let selectedList = ...
+    //     ipcRenderer.send('unlockSelected', selectedList);
+    // });
+
+    // $(document).on('click', '.js-select-all', (ev) => {
+    //     ev.preventDefault();
+    //     ...
+    // });
+
+    // $(document).on('click', '.js-unselect-all', (ev) => {
+    //     ev.preventDefault();
+    //     ...
+    // });
+
+    // $(document).on('click', '.js-select-file', (ev) => {
+    //     ev.preventDefault();
+    //     ...
+    //     selected_stack.pushback(this)
+    // });
+
+    // $(document).on('click', '.js-unselect-file', (ev) => {
+    //     ev.preventDefault();
+    //     ...
+    //     selected_stack.pop(this)
+    // });
+
+    // $(document).on('shift+click', '.js-select-file', (ev) => {
+    //     ev.preventDefault();
+    //     ...
+    //     selected_stack.pop(this)
+    // });
+
+    // $(document).on('shift+click', '.js-unselect-file', (ev) => {
+    //     ev.preventDefault();
+    //     ...
+    //     selected_stack.pop(this)
+    // });
+
+    // $(document).on('strg+click', '.js-select-file', (ev) => {
+    //     ev.preventDefault();
+    //     ...
+    //     selected_stack.pop(this)
+    // });
+
+    // $(document).on('strg+click', '.js-unselect-file', (ev) => {
+    //     ev.preventDefault();
+    //     ...
+    //     selected_stack.pop(this)
+    // });
 
 	ipcRenderer.on('repoDir', (event, repoDir) => {
 		ejs.preloadTemplate('templates/main.ejs')

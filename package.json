@@ -1,6 +1,6 @@
 {
   "name": "gitlit",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Simple GUI for Git LFS",
   "main": "app/main.js",
   "build": {
@@ -44,12 +44,12 @@
   },
   "devDependencies": {
     "electron": "^11.2.1",
-    "electron-builder": "^22.9.1"
+    "electron-builder": "^22.11.7"
   },
   "scripts": {
     "start": "electron .",
-    "pack": "electron-builder --linux --win portable nsis --dir --publish=never",
-    "dist": "electron-builder --linux --win portable nsis --publish=never"
+    "pack": "electron-builder --win nsis --dir --publish=never",
+    "dist": "electron-builder --win nsis --publish=never"
   },
   "repository": {
     "type": "git",

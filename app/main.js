@@ -4,6 +4,7 @@ const url = require('url');
 const Store = require('electron-store');
 const electronLocalshortcut = require('electron-localshortcut');
 const exec = require('child_process').exec;
+const execSync = require('child_process').execSync;
 const gau = require('github-app-updater');
 const args = require('minimist')(process.defaultApp ? process.argv.slice(3) : process.argv.slice(1), {
 	default: {
@@ -14,8 +15,6 @@ const args = require('minimist')(process.defaultApp ? process.argv.slice(3) : pr
 let win;
 let repoDir = path.resolve(path.normalize(args._.join(' ')));
 let repoRootDir = repoDir;
-var branch = '';
-const store = new Store();
 
 //auto update stuff
 if (process.platform === 'win32') {
@@ -77,39 +76,6 @@ function lockFile(file) {
 			win.webContents.send('notification', notification);
 		}
 	);
-};
-
-function getRepoBranches(dir, cb) {
-	exec('git branch -r | findstr /v "HEAD"', {
-			maxBuffer: (1024 * 1024) * 10, //10MB
-			cwd: dir
-		},
-		(error, stdout, stderr) => {
-			if (error) {
-				cb(error);
-				return;
-			}
-			let branches = [];
-			branch = '';
-			if (stdout) {
-				stdout.split('\n').forEach((abranch) => {
-					if (abranch.length > 0) { branches.push(abranch.trim()); }
-				});
-				//check for stored default branch in DB, if not then look for develop/master/main:	
-				if (store.get(repoDir) != null) {
-					branch = store.get(repoDir);
-				} else {
-					if (branches.indexOf("origin/main") > -1) { branch = "origin/main"; }
-					if (branches.indexOf("origin/master") > -1) { branch = "origin/master"; }
-					if (branches.indexOf("origin/develop") > -1) { branch = "origin/develop"; }
-					store.set(repoDir, branch);
-				}
-				cb(null, branches, branch);
-			} else {
-				cb(null, branches, branch);
-			}
-		}
-	);	  
 };
 
 function getLfsFileList(dir, cb) {
@@ -217,14 +183,7 @@ function loadRepoPage() {
 
 				allFiles.push(t);
 			});
-			
-			getRepoBranches(repoDir, (err, branches, defaultBranch) => {
-				if (err) {
-					console.error(err);
-					return;
-				}
-				win.webContents.send('fileList', allFiles, branches, defaultBranch);
-			});
+			win.webContents.send('fileList', allFiles);
 		});
 	});
 	
@@ -307,57 +266,37 @@ ipcMain.on('unlock', (event, file) => {
 });
 
 ipcMain.on('lock', (event, file) => {
-	var child = exec('git remote update');
-	//if above command succeeds:
-	child.stdout.on('data', (data) => {
-		exec('git log --oneline --exit-code ..remotes/' + branch + ' "' + file + '"', 
-			{ 	maxBuffer: (1024 * 1024) * 10, //10MB
-				cwd: repoDir
-			},
-			(error, stdout, stderr) => {
-				//if changes to the file exist in upstream branch:
-				if (stdout) {
-					//open pop-up warning
-					if (dialog.showMessageBoxSync(win, {
-						message: 	`A newer version of this file was pushed to remote branch "` + branch + `".\n
-									Consider merging the newest version into your current branch before applying changes.
-									Otherwise your or the other developer's changes to the file might get lost in a merge conflict later.`,
-						type: "warning",
-						buttons: ["Lock anyway!", "Cancel"],
-						defaultId: 1,
-						noLink: true,
-						title: "Unmerged changes!",
-						cancelId: 1,
-					})) 
-					{
-						//if "cancel" -> exit function
-						return 1;
-					}
-					else
-					{
-						//if "yes" -> continue locking file
-						lockFile(file);
-						return 0;
-					}
-				}
-				//in case there was an error (e.g., no develop branch found), show a notification
-				if ((error && error.message) || stderr) {
-					let notification = {
-						message: "Apparently, I can't find the specified remote branch to check for newer files...\n\n" + (error && error.message) || stderr,
-						type: 'error'
-					};
-					win.webContents.send('notification', notification);	
-				}
-				//and then lock the file as if there was no check
-				lockFile(file);
-			}
-		);
-	});	
-});
-
-ipcMain.on('selectBranch', (event, thisbranch) => {
-	branch = thisbranch;
-	store.set(repoDir, branch);
+    try {
+        execSync('git fetch --all', { cwd: repoDir });
+        const last_commit = execSync('git log -1 --format=%ct', { cwd: repoDir }).toString();
+        const raw_commits = execSync('git log --oneline @.. --all --after='+last_commit+' "'+file+'"', { cwd: repoDir }).toString();
+        if (raw_commits)
+        {
+            const formatted_commits = execSync('git log --pretty=format:"%h (%an %cr) %s" @.. --all --after='+last_commit+' "'+file+'"', { cwd: repoDir }).toString();
+            if (dialog.showMessageBoxSync(win, {
+                message: `The following commits changed this file since your last commit, but are not present in your branch:\n\n`
+                            + formatted_commits +
+                         `\n\nConsider merging the latest version into your current branch before applying changes. Otherwise your or the other developer's changes to the file might get lost in a merge conflict later.`,
+                type: "warning",
+                buttons: ["Lock anyway!", "Cancel"],
+                defaultId: 1,
+                noLink: true,
+                title: "Unmerged changes!",
+                cancelId: 1,
+            }))
+            {
+                return 1; //user clicked "cancel" -> exit function here without locking the file
+            }
+        }
+    } catch (e) {
+        console.error('Error occured', e);
+        let notification = {
+            message: "Checking remote for unmerged commits failed.\nSee console for details.\nLocking file now.",
+            type: 'error'
+        };
+        win.webContents.send('notification', notification);
+    }
+    lockFile(file); //no issues exist or user clicked "yes" -> continue locking file
 });
 
 ipcMain.on('restart', (event, newRepoDir) => {
