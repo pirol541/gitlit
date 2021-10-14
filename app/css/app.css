@@ -50,6 +50,14 @@ table.sortable .sorttable_nosort {
     cursor: default;
 }
 
+tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+tr.selected {
+    /* border: solid rgb(25, 0, 255) 3px; */
+    background-color: rgb(153, 206, 255);
+}
 
 /*
 * updater

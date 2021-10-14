@@ -4,13 +4,16 @@
 			<a class="btn btn-primary btn-sm js-open-folder" href="javascript:///">Open another folder</a>
 			<input type="file" style="display: none" class="js-open-folder-input" webkitdirectory />
 		</div>
-		<a class="btn btn-secondary btn-sm js-refresh" href="javascript:///">
-			Refresh
-		</a>
+		<a class="btn btn-secondary btn-sm js-refresh" href="javascript:///">Refresh</a>
 	</div>
+    <div class="float-right" style="display: inline;">
+        <a class="btn btn-danger btn-sm js-unlock-selected" href="javascript:///">Unlock selected</a>
+        <a class="btn btn-primary btn-sm js-lock-selected" href="javascript:///">Lock selected</a>
+    </div>
 </div>
 <br>
-<table class="table table-striped sortable js-filestable">
+<!-- <table class="table table-striped sortable js-filestable"> -->
+<table class="table sortable js-filestable">
 	<thead class="thead-light">
 		<tr>
 			<th>File</th>
@@ -20,8 +23,8 @@
 	<thead>
 
 	<tbody>
-	<% files.forEach((file) => { %>
-		<tr>
+	<% files.forEach((file, i) => { %>
+		<tr class="js-select" >
 			<td><%= file.file %></td>
 			<td><%= file.lockedBy ? file.lockedBy + ' (id: ' + file.id + ')' : 'not locked' %></td>
 			<td>

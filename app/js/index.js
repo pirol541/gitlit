@@ -9,6 +9,8 @@
 
 	let firstRun = true;
 
+    var trs;
+
 	//events
 
 	//update stuff
@@ -62,65 +64,8 @@
 		} else {
 			$('.files-table-container').html(ejs.rr('templates/noGitLfsFiles.ejs'));
 		}
+        trs = document.getElementsByClassName('js-select');
 	});
-
-    // $(document).on('click', '.js-lock-selected', (ev) => {
-    //     ev.preventDefault();
-    //     let selectedList = ...
-    //     ipcRenderer.send('lockSelected', selectedList);
-    // });
-
-    // $(document).on('click', '.js-unlock-selected', (ev) => {
-    //     ev.preventDefault();
-    //     let selectedList = ...
-    //     ipcRenderer.send('unlockSelected', selectedList);
-    // });
-
-    // $(document).on('click', '.js-select-all', (ev) => {
-    //     ev.preventDefault();
-    //     ...
-    // });
-
-    // $(document).on('click', '.js-unselect-all', (ev) => {
-    //     ev.preventDefault();
-    //     ...
-    // });
-
-    // $(document).on('click', '.js-select-file', (ev) => {
-    //     ev.preventDefault();
-    //     ...
-    //     selected_stack.pushback(this)
-    // });
-
-    // $(document).on('click', '.js-unselect-file', (ev) => {
-    //     ev.preventDefault();
-    //     ...
-    //     selected_stack.pop(this)
-    // });
-
-    // $(document).on('shift+click', '.js-select-file', (ev) => {
-    //     ev.preventDefault();
-    //     ...
-    //     selected_stack.pop(this)
-    // });
-
-    // $(document).on('shift+click', '.js-unselect-file', (ev) => {
-    //     ev.preventDefault();
-    //     ...
-    //     selected_stack.pop(this)
-    // });
-
-    // $(document).on('strg+click', '.js-select-file', (ev) => {
-    //     ev.preventDefault();
-    //     ...
-    //     selected_stack.pop(this)
-    // });
-
-    // $(document).on('strg+click', '.js-unselect-file', (ev) => {
-    //     ev.preventDefault();
-    //     ...
-    //     selected_stack.pop(this)
-    // });
 
 	ipcRenderer.on('repoDir', (event, repoDir, branch) => {
 		ejs.preloadTemplate('templates/main.ejs')
@@ -175,14 +120,36 @@
 
 	$(document).on('click', '.js-lock', (ev) => {
 		ev.preventDefault();
+        ev.stopPropagation();
 		let file = $(ev.currentTarget).attr('data-file');
 		ipcRenderer.send('lock', file);
 	});
 
 	$(document).on('click', '.js-unlock', (ev) => {
 		ev.preventDefault();
+        ev.stopPropagation();
 		let file = $(ev.currentTarget).attr('data-file');
 		ipcRenderer.send('unlock', file);
+	});
+
+	$(document).on('click', '.js-lock-selected', (ev) => {
+		ev.preventDefault();
+        let all = $('.selected').find('.js-lock:visible')
+        let files = [];
+        for (const element of all) {
+            files.push($(element).attr('data-file'));
+        }
+		ipcRenderer.send('lock-selected', files);
+	});
+
+	$(document).on('click', '.js-unlock-selected', (ev) => {
+		ev.preventDefault();
+        let all = $('.selected').find('.js-unlock:visible')
+        let files = [];
+        for (const element of all) {
+            files.push($(element).attr('data-file'));
+        }
+		ipcRenderer.send('unlock-selected', files);
 	});
 
 	$(document).on('click', '.js-refresh', (ev) => {
@@ -233,6 +200,50 @@
 		ev.preventDefault();
 		ev.stopPropagation();
 	});
+
+    var lastSelectedRow;
+
+    document.onselectstart = function () {
+        return false;
+    }
+
+    $(document).on('click', '.js-select', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        let currenttr = $(ev.currentTarget)[0];
+        if (window.event.ctrlKey) {
+            toggleRow(currenttr);
+        }
+
+        if (window.event.button === 0) {
+            if (!window.event.ctrlKey && !window.event.shiftKey) {
+                clearAll(currenttr);
+                toggleRow(currenttr);
+            }
+            if (window.event.shiftKey) {
+                selectRowsBetweenIndexes([lastSelectedRow.rowIndex, currenttr.rowIndex])
+            }
+        }
+    });
+
+    function toggleRow(row) {
+        if ($(row).hasClass('selected')) { $(row).removeClass('selected'); }
+        else { $(row).addClass('selected'); }
+        lastSelectedRow = row;
+    }
+
+    function selectRowsBetweenIndexes(indexes) {
+        indexes.sort(function (a, b) { return a - b; });
+        for (var i = indexes[0]; i <= indexes[1]; i++) {
+            if (!$(trs[i-1]).hasClass('selected')) { $(trs[i-1]).addClass('selected') };
+        }
+    }
+
+    function clearAll(currenttr) {
+        for (var i = 0; i < trs.length; i++) {
+            if (trs[i].rowIndex != currenttr.rowIndex) { $(trs[i]).removeClass('selected') };
+        }
+    }
 
 	//startup
 	PNotify.defaults.styling = 'bootstrap4'; // Bootstrap version 4

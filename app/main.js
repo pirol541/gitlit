@@ -293,7 +293,7 @@ ipcMain.on('unlock', (event, file) => {
 ipcMain.on('lock', (event, file) => {
     try {
         execSync('git fetch --all', { cwd: repoDir });
-        const last_commit = execSync('git log -1 --format=%ct', { cwd: repoDir }).toString();
+        const last_commit = execSync('git log -1 --format=%ct', { cwd: repoDir }).toString().trim();
         const raw_commits = execSync('git log --oneline @.. --all --after='+last_commit+' "'+file+'"', { cwd: repoDir }).toString();
         if (raw_commits)
         {
@@ -301,12 +301,12 @@ ipcMain.on('lock', (event, file) => {
             if (dialog.showMessageBoxSync(win, {
                 message: `The following commits changed this file since your last commit, but are not present in your branch:\n\n`
                             + formatted_commits +
-                         `\n\nConsider merging the latest version into your current branch before applying changes. Otherwise your or the other developer's changes to the file might get lost in a merge conflict later.`,
+                         `\n\nConsider merging the latest version into your current branch before applying changes. Otherwise your or the other developer's changes might get lost in a merge conflict later.`,
                 type: "warning",
                 buttons: ["Lock anyway!", "Cancel"],
                 defaultId: 1,
                 noLink: true,
-                title: "Unmerged changes!",
+                title: "Unmerged commits!",
                 cancelId: 1,
             }))
             {
@@ -322,6 +322,97 @@ ipcMain.on('lock', (event, file) => {
         win.webContents.send('notification', notification);
     }
     lockFile(file); //no issues exist or user clicked "yes" -> continue locking file
+});
+
+ipcMain.on('unlock-selected', (event, files) => {
+    try {
+        execSync('git fetch', { cwd: repoDir });
+        let critical_files = false;
+        files.every(file => {
+            const raw_commits = execSync('git log --oneline @{upstream}..@ "' + file + '"', { cwd: repoDir }).toString().trim();
+            if (raw_commits) { critical_files = true; return false; }
+        });
+        if (critical_files)
+        {
+            if (dialog.showMessageBoxSync(win, {
+                message: `Local commits not pushed to upstream branch!\n\nYour changes might get overwritten if they are not visible to other developers.`,
+                type: "warning",
+                buttons: ["Unlock anyway!", "Cancel"],
+                defaultId: 1,
+                noLink: true,
+                title: "Unpushed commits!",
+                cancelId: 1,
+            })) {
+                return 1; //user clicked "cancel" -> exit function here without unlocking the file
+            }
+        }
+    } catch (e) {
+        console.error('Error occured', e);
+        let notification = {
+            message: "Checking upstream branch for unpushed commits failed.\nSee console for details.\nUnlocking file now.",
+            type: 'error'
+        };
+        win.webContents.send('notification', notification);
+    }
+    //no issues exist or user clicked "yes" -> continue unlocking file
+    files.forEach(file => {
+        exec('git lfs unlock "' + file + '"', { cwd: repoDir },
+            (error, stdout, stderr) => {
+                let notification = {
+                    message: (error && error.message) || stderr,
+                    type: 'error'
+                };
+                if (stdout) {
+                    notification = {
+                        file: file,
+                        event: 'unlock',
+                        type: 'info'
+                    };
+                }
+                win.webContents.send('notification', notification);
+            }
+        );
+    });
+});
+
+ipcMain.on('lock-selected', (event, files) => {
+    try {
+        execSync('git fetch --all', { cwd: repoDir });
+        let critical_files = "";
+        files.forEach(file => {
+            const last_commit = execSync('git log -1 --format=%ct', { cwd: repoDir }).toString().trim();
+            const raw_commits = execSync('git log --oneline @.. --all --after=' + last_commit + ' "' + file + '"', { cwd: repoDir }).toString().trim();
+            if (raw_commits) { critical_files += file + "\n"; }
+        });
+        if (critical_files)
+        {
+            if (dialog.showMessageBoxSync(win, {
+                message: `The following files are part of new commits in other branches:\n\n`
+                            + critical_files +
+                         `\nConsider merging the latest versions into your current branch before applying changes. Otherwise your or the other developer's changes might get lost in a merge conflict later.`,
+                type: "warning",
+                buttons: ["Lock anyway!", "Cancel"],
+                defaultId: 1,
+                noLink: true,
+                title: "Unmerged commits!",
+                cancelId: 1,
+            }))
+            {
+                return 1; //user clicked "cancel" -> exit function here without locking the file
+            }
+        }
+    } catch (e) {
+        console.error('Error occured', e);
+        let notification = {
+            message: "Checking remote for unmerged commits failed.\nSee console for details.\nLocking files now.",
+            type: 'error'
+        };
+        win.webContents.send('notification', notification);
+    }
+    //if the user accepts the risk -> lock all files in for-loop
+    files.forEach(file => {
+        lockFile(file);
+    });
 });
 
 ipcMain.on('restart', (event, newRepoDir) => {
